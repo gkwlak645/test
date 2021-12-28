@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Ray Cast</title>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.5.1/math.js"></script>
+    <style>
+      html, body, input {
+        margin: 0;
+      }
+      canvas {
+      	margin: 10px;
+      }
+      .cont {
+        display: block;
+        width: 500px;
+      }
+    </style>
+    <script>
+        //'rgb(255, 0, 0)'
+        class camera {
+            constructor(x, y, a, w_p) {
+                this.x = x;
+                this.y = y;
+                this.a = a;
+                this.w_p = w_p;
+                this.rays = [];
+                for(let i = 0; i < w_p; i++) {
+                    let r_a = 50 - (i / w_p * 100);
+                    if(this.a == r_a)
+                        this.rays.push(new Ray(100, 200, r_a / 180 * Math.PI, 'yellow'));
+                    else
+                        this.rays.push(new Ray(100, 200, r_a / 180 * Math.PI, 'red'));
+                }
+            }
+            moveat(x, y) {
+                for(let i = 0; i < this.rays.length; i++)
+                    this.rays[i].moveat(x, y);
+            }
+            turn(a) {
+                this.a += a;
+                for(let i = 0; i < this.rays.length; i++)
+                    this.rays[i].turn(a);
+            }
+            cast(walls) {
+                for(let i = 0; i < this.rays.length; i++) {
+                    let pt = this.rays[i].cast(walls);
+                    if(pt) {
+                        this.rays[i].show();
+                        ctx.beginPath()
+                        ctx.arc(pt[0], pt[1], 1, 0, Math.PI * 2);
+                        ctx.closePath()
+                        ctx.fillStyle = 'red';
+                        ctx.fill();
+                        //3d 렌더링
+                        let wall_x = (cnv_width / this.rays.length) * i;
+                        let max_dis = Math.sqrt(Math.pow(cnv_height,2) + Math.pow(cnv_width,2));
+                        let dis = Math.cos(this.a - Math.atan2(this.rays[i].dir[1], this.rays[i].dir[0])) * this.rays[i].dis;
+                        let wall_h = cnv_height * (1 - (this.rays[i].dis / max_dis));
+                        let r_v = 255 * (1 - (this.rays[i].dis / max_dis));
+                        ctx_3d.fillStyle = 'rgb(0, 0, ' + r_v + ')';
+                        ctx_3d.fillRect(wall_x, (cnv_height - wall_h) / 2, cnv_width / this.rays.length + 1, wall_h);
+                        if(this.rays[i].color == 'yellow') {
+                            ctx_3d.strokeStyle = 'white';
+                            ctx_3d.strokeRect(wall_x, (cnv_height - wall_h) / 2, cnv_width / this.rays.length + 1, wall_h);
+                        }
+                    }
+                }
+            }
+        }
+    	class Boundary {
+    		constructor(x1, y1, x2, y2)
+    		{
+    			this.a = [x1, y1];
+    			this.b = [x2, y2];
+    		}
+    		show()
+    		{
+    			ctx.strokeStyle = 'blue';
+    			ctx.lineWidth = 1;
+    			ctx.beginPath();
+    			ctx.moveTo(this.a[0], this.a[1]);
+    			ctx.lineTo(this.b[0], this.b[1]);
+    			ctx.closePath();
+    			ctx.stroke();
+    		}
+    	}
+    	class Ray {
+    		constructor(x, y, dir, color) {
+    			this.pos = [x, y];
+    			this.dir = [Math.cos(dir), Math.sin(dir)];
+    			this.dis = 100;
+                this.color = color;
+    		}
+    		show() {
+    			ctx.strokeStyle = this.color;
+    			ctx.lineWidth = 1;
+    			ctx.save();
+    			ctx.translate(this.pos[0],this.pos[1]);
+    			ctx.beginPath();
+    			ctx.moveTo(0, 0);
+    			ctx.lineTo(this.dir[0] * this.dis, this.dir[1] * this.dis);
+    			ctx.closePath();
+    			ctx.restore();
+    			ctx.stroke();
+    		}
+            unshow() {
+                ctx.strokeStyle = 'rgb(70, 0, 0)';
+                ctx.lineWidth = 1;
+                ctx.save();
+                ctx.translate(this.pos[0],this.pos[1]);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(this.dir[0] * 50, this.dir[1] * 50);
+                ctx.closePath();
+                ctx.restore();
+                ctx.stroke();
+            }
+    		cast(walls) {
+    			//외적 사용하여 계산
+				let dis = Infinity;
+				let pt;
+    			for(let i = 0; i < walls.length; i++)
+    			{
+					let vr = this.dir;
+                    //[1,0]
+    				let v1 = [walls[i].a[0] - this.pos[0], walls[i].a[1] - this.pos[1]];
+    				let v2 = [walls[i].b[0] - this.pos[0], walls[i].b[1] - this.pos[1]];
+    				let opw = v1[0] * v2[1] - v1[1] * v2[0]; 
+    				let op1 = vr[0] * v1[1] - vr[1] * v1[0];
+    				let op2 = vr[0] * v2[1] - vr[1] * v2[0];
+
+    				if(Math.sign(op1) == Math.sign(op2))
+                    {
+    					continue;
+                    }
+    				if(Math.sign(opw) == Math.sign(op2))
+    				{
+						let pt_temp;
+						let x1 = walls[i].a[0]; 
+						let y1 = walls[i].a[1];
+						let x2 = walls[i].b[0]; 
+						let y2 = walls[i].b[1];
+						let x3 = this.pos[0];
+						let y3 = this.pos[1];
+						let x4 = x3 + this.dir[0];
+						let y4 = y3 + this.dir[1];
+						let a1 = (y3 - y4) / (x3 - x4);
+						if(x1 == x2) {
+							let x = x1;
+							let y = a1 * (x - x3) + y3;
+							pt_temp = [x, y];
+						}
+						else {
+                            let x;
+                            let y;
+                            let a2 = (y1 - y2) / (x1 - x2);
+                            let b2 = y1 - (a2 * x1);
+                            if(x3 == x4) {
+                                x = x3;
+                                y = a2 * x + b2;
+                            }
+                            else {
+                                let b1 = y3 - (a1 * x3);
+                                x = -(b1 - b2) / (a1 - a2);
+                                y = a1 * x + b1;
+                            }
+							pt_temp = [x, y];
+						}
+						if(pt) {
+							let dis_b = Math.sqrt(Math.pow(pt[0] - this.pos[0],2) + Math.pow(pt[1] - this.pos[1],2));
+							let dis_a = Math.sqrt(Math.pow(pt_temp[0] - this.pos[0],2) + Math.pow(pt_temp[1] - this.pos[1],2));
+							if(dis_b > dis_a)
+							{
+								pt = pt_temp;
+								this.dis = dis_a;
+							}
+						}
+						else {
+							pt = pt_temp;
+							this.dis = Math.sqrt(Math.pow(pt_temp[0] - this.pos[0],2) + Math.pow(pt_temp[1] - this.pos[1],2));
+						}
+    				}
+    			}
+				return pt
+    		}
+    		lookat(x, y) {
+	   			let vecA = [x - this.pos[0], y - this.pos[1]];
+	   			let aglA = Math.atan2(vecA[1], vecA[0]);
+	   			this.dir = [Math.cos(aglA), Math.sin(aglA)];
+    		}
+    		moveat(x, y) {
+    			this.pos = [x, y];
+    		}
+            turn(a) {
+                let angle = a + Math.atan2(this.dir[1], this.dir[0]);
+                this.dir = [Math.cos(angle), Math.sin(angle)];
+            }
+    	}
+        let cam;
+    	let walls = [];
+      	const cnv_width = 400;
+      	const cnv_height = 400;
+      	let canvas = null;
+        let canvas_3d = null;
+      	let ctx = null;
+        let ctx_3d = null;
+	   	function over(e) {
+	   		cam.moveat(e.offsetX, e.offsetY);
+	   	}
+	   	function dragstart(e) {
+	   		e.preventDefault();
+	   	}
+        function keypress(e) {
+            switch(e.keyCode) {
+                case 81:
+                    e.preventDefault();
+                    cam.turn(-0.1);
+                    break;
+                case 69:
+                    e.preventDefault();
+                    cam.turn(0.1);
+                    break;
+                default:
+                    break;
+            }
+        }
+      	function run() {
+        	ctx.clearRect(0, 0, cnv_width, cnv_height);
+        	ctx.fillStyle = 'black';
+        	ctx.fillRect(0, 0, cnv_width, cnv_height);
+            ctx_3d.clearRect(0, 0, cnv_width, cnv_height);
+            ctx_3d.fillStyle = 'black';
+            ctx_3d.fillRect(0, 0, cnv_width, cnv_height);
+        	for(let i = 0; i < walls.length; i++)
+        		walls[i].show();
+            cam.cast(walls);
+            
+            /*var gra = ctx_3d.createLinearGradient(0,0,200,0);
+            gra.addColorStop(0, 'red');
+            gra.addColorStop(0.5, 'green');
+            gra.addColorStop(1, 'blue');
+            ctx_3d.fillStyle = gra;
+            ctx_3d.fillRect(0,0,cnv_width,cnv_height);
+            ctx_3d.fill();*/
+      	}
+      	$(document).ready(function() {
+        	$('body').append("<canvas tabindex='1' draggable='true' width='" + cnv_width + "' height='" + cnv_height + "' id='cnv'></canvas>");
+            $('body').append("<canvas draggable='true' width='" + cnv_width + "' height='" + cnv_height + "' id='cnv_3d'></canvas>");
+            $('body').append("<p>Q, E 회전</p>")
+        	canvas = $('#cnv');
+            canvas_3d = $('#cnv_3d');
+            ctx = canvas[0].getContext('2d');
+            ctx_3d = canvas_3d[0].getContext('2d');
+        	canvas.on({
+        		mousemove: over,
+        		dragstart:  dragstart,
+                keydown: keypress
+        	});
+        	const raycnt = 400;
+        	const wallscnt = 3;
+        	for(let i = 0; i < wallscnt; i++)
+        	{
+        		let x1 = Math.floor(Math.random() * (cnv_width + 1));
+        		let y1 = Math.floor(Math.random() * (cnv_height + 1));
+        		let x2 = Math.floor(Math.random() * (cnv_width + 1));
+        		let y2 = Math.floor(Math.random() * (cnv_height + 1));
+        		walls.push(new Boundary(x1, y1, x2, y2));
+        	}
+            cam = new camera(100, 100, 0, raycnt);
+        	run();
+        	setInterval(run, 100/60);
+      	});
+    </script>
+  </head>
+  <body>
+  </body>
+</html>
