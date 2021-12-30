@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>Ray Cast</title>
-    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.5.1/math.js"></script>
+    <head>
+        <meta charset="utf-8"/>
+        <title>Ray Cast</title>
+        <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.5.1/math.js"></script>
+        <script src="./js/camera.js"></script>
     <style>
       html, body, input {
         margin: 0;
@@ -18,57 +19,6 @@
       }
     </style>
     <script>
-        //'rgb(255, 0, 0)'
-        class camera {
-            constructor(x, y, a, w_p) {
-                this.x = x;
-                this.y = y;
-                this.a = a;
-                this.w_p = w_p;
-                this.rays = [];
-                for(let i = 0; i < w_p; i++) {
-                    let r_a = 50 - (i / w_p * 100);
-                    if(this.a == r_a)
-                        this.rays.push(new Ray(100, 200, r_a / 180 * Math.PI, 'yellow'));
-                    else
-                        this.rays.push(new Ray(100, 200, r_a / 180 * Math.PI, 'red'));
-                }
-            }
-            moveat(x, y) {
-                for(let i = 0; i < this.rays.length; i++)
-                    this.rays[i].moveat(x, y);
-            }
-            turn(a) {
-                this.a += a;
-                for(let i = 0; i < this.rays.length; i++)
-                    this.rays[i].turn(a);
-            }
-            cast(walls) {
-                for(let i = 0; i < this.rays.length; i++) {
-                    let pt = this.rays[i].cast(walls);
-                    if(pt) {
-                        this.rays[i].show();
-                        ctx.beginPath()
-                        ctx.arc(pt[0], pt[1], 1, 0, Math.PI * 2);
-                        ctx.closePath()
-                        ctx.fillStyle = 'red';
-                        ctx.fill();
-                        //3d 렌더링
-                        let wall_x = (cnv_width / this.rays.length) * i;
-                        let max_dis = Math.sqrt(Math.pow(cnv_height,2) + Math.pow(cnv_width,2));
-                        let dis = Math.cos(this.a - Math.atan2(this.rays[i].dir[1], this.rays[i].dir[0])) * this.rays[i].dis;
-                        let wall_h = cnv_height * (1 - (this.rays[i].dis / max_dis));
-                        let r_v = 255 * (1 - (this.rays[i].dis / max_dis));
-                        ctx_3d.fillStyle = 'rgb(0, 0, ' + r_v + ')';
-                        ctx_3d.fillRect(wall_x, (cnv_height - wall_h) / 2, cnv_width / this.rays.length + 1, wall_h);
-                        if(this.rays[i].color == 'yellow') {
-                            ctx_3d.strokeStyle = 'white';
-                            ctx_3d.strokeRect(wall_x, (cnv_height - wall_h) / 2, cnv_width / this.rays.length + 1, wall_h);
-                        }
-                    }
-                }
-            }
-        }
     	class Boundary {
     		constructor(x1, y1, x2, y2)
     		{
@@ -235,7 +185,7 @@
             ctx_3d.fillRect(0, 0, cnv_width, cnv_height);
         	for(let i = 0; i < walls.length; i++)
         		walls[i].show();
-            cam.cast(walls);
+            cam.cast(walls, ctx, ctx_3d);
             
             /*var gra = ctx_3d.createLinearGradient(0,0,200,0);
             gra.addColorStop(0, 'red');
@@ -248,7 +198,7 @@
       	$(document).ready(function() {
         	$('body').append("<canvas tabindex='1' draggable='true' width='" + cnv_width + "' height='" + cnv_height + "' id='cnv'></canvas>");
             $('body').append("<canvas draggable='true' width='" + cnv_width + "' height='" + cnv_height + "' id='cnv_3d'></canvas>");
-            $('body').append("<p>Q, E 회전</p>")
+            $('body').append("<p>Q, E 회전</p>");
         	canvas = $('#cnv');
             canvas_3d = $('#cnv_3d');
             ctx = canvas[0].getContext('2d');
@@ -268,7 +218,7 @@
         		let y2 = Math.floor(Math.random() * (cnv_height + 1));
         		walls.push(new Boundary(x1, y1, x2, y2));
         	}
-            cam = new camera(100, 100, 0, raycnt);
+            cam = new camera(100, 100, 0, 100, 120, raycnt);
         	run();
         	setInterval(run, 100/60);
       	});
